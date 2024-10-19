@@ -5,6 +5,7 @@ public class HashTableImpl implements HashTable {
 	private static class Entry {
 		int key;
 		Object value;
+		boolean occupied;
 	}
 
 	private static final int INITIAL_SIZE = 4;
@@ -19,10 +20,10 @@ public class HashTableImpl implements HashTable {
 		table = new Entry[INITIAL_SIZE];
 	}
 
-	private static Integer find_slot(int key, Entry[] table) {
+	private static Integer find_slot(int key, Entry[] table, boolean for_search) {
 		int idx = hash(key, table.length) % table.length;
 		int checked = 0;
-		while(table[idx] != null && table[idx].key != key) {
+		while(table[idx] != null && (table[idx].occupied || for_search) && table[idx].key != key) {
 			if(checked++ > table.length) {
 				return null;
 			}
@@ -33,14 +34,14 @@ public class HashTableImpl implements HashTable {
 		return idx;
 	}
 
-	private int find_slot_resize(int key) {
-		Integer idx = find_slot(key, table);
+	private int find_slot_resize(int key, boolean for_search) {
+		Integer idx = find_slot(key, table, for_search);
 		if(idx != null) {
 			return idx;
 		}
 
 		rebuild(table.length * 2);
-		idx = find_slot(key, table);
+		idx = find_slot(key, table, false);
 		assert idx != null;
 		return idx;
 	}
@@ -51,10 +52,10 @@ public class HashTableImpl implements HashTable {
 		}
 		Entry[] newTable = new Entry[new_size];
 		for(Entry entry : table) {
-			if(entry == null) {
+			if(entry == null || !entry.occupied) {
 				continue;
 			}
-			Integer idx = find_slot(entry.key, newTable);
+			Integer idx = find_slot(entry.key, newTable, false);
 			assert idx != null;
 			newTable[idx] = entry;
 		}
@@ -64,8 +65,8 @@ public class HashTableImpl implements HashTable {
 
 	@Override
 	public void insert(int key, Object value) {
-		int idx = find_slot_resize(key);
-		if(table[idx] != null) {
+		int idx = find_slot_resize(key, false);
+		if(table[idx] != null && table[idx].occupied) {
 			table[idx].value = value;
 			return;
 		}
@@ -77,14 +78,15 @@ public class HashTableImpl implements HashTable {
 		Entry entry = table[idx];
 		entry.key = key;
 		entry.value = value;
+		entry.occupied = true;
 
 		current_size++;
 	}
 
 	@Override
 	public Object search(int key) {
-		int idx = find_slot_resize(key);
-		if(table[idx] != null) {
+		int idx = find_slot_resize(key, true);
+		if(table[idx] != null && table[idx].occupied) {
 			return table[idx].value;
 		}
 		return null;
@@ -92,33 +94,47 @@ public class HashTableImpl implements HashTable {
 
 	@Override
 	public void remove(int key) {
-		int i = find_slot_resize(key);
-		if(table[i] == null) {
+		int i = find_slot_resize(key, false);
+		if(table[i] == null || !table[i].occupied) {
 			return;
 		}
 
-		table[i] = null;
+		table[i].occupied = false;
+		/*int j = (i + 1) % table.length;
+		while(j < table.length) {
+			if(table[j] == null || !table[j].occupied)
+				break;
+
+			int k = hash(table[j].key) % table.length;
+			if(k >= i && k < j) {
+				table[k].key = table[j].key;
+				table[k].value = table[j].value;
+				table[k].occupied = true;
+				table[j].occupied = false;
+				i = j;
+			}
+
+			j++;
+		}*/
 		int j = i;
 		while(true) {
 			j++;
+			if(j >= table.length)
+				break;
 			j %= table.length;
 
-			if(table[j] == null)
+			if(table[j] == null || !table[j].occupied)
 				break;
 
 			int k = hash(table[j].key) % table.length;
 
-			if(i <= j) {
-				if(i < k && k <= j)
-					continue;
-			} else {
-				if(k <= j || i < k)
-					continue;
+			if ((i <= j && (k < i || k > j)) || (i > j && (k > j || k < i))) {
+				table[i].key = table[j].key;
+				table[i].value = table[j].value;
+				table[i].occupied = true;
+				table[j].occupied = false;
+				i = j;
 			}
-
-			table[i] = table[j];
-			table[j] = null;
-			i = j;
 		}
 
 		current_size--;
@@ -138,7 +154,7 @@ public class HashTableImpl implements HashTable {
 		int[] result = new int[table.length];
 		for (int i = 0; i < table.length; i++) {
 			Entry entry = table[i];
-			result[i] = entry == null ? 0 : entry.key;
+			result[i] = entry == null || !entry.occupied ? 0 : entry.key;
 		}
 
 		return result;
