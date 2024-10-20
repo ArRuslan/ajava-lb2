@@ -1,7 +1,5 @@
 package ua.nure.pv;
 
-import java.util.Arrays;
-
 public class HashTableImpl implements HashTable {
 
 	private static class Entry {
@@ -97,11 +95,9 @@ public class HashTableImpl implements HashTable {
 	public void remove(int key) {
 		int i = find_slot_resize(key, true);
 		if(table[i] == null || !table[i].occupied) {
-			System.out.printf("Not found: %d%n", key);
 			return;
 		}
 
-		//int old_i = i;
 		table[i].occupied = false;
 		table[i].value = null;
 

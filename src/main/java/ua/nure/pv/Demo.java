@@ -1,7 +1,6 @@
 package ua.nure.pv;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.Arrays;
 
 public class Demo {
     public static void main(String[] args) {
