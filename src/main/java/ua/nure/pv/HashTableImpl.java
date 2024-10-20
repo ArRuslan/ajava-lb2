@@ -1,7 +1,9 @@
 package ua.nure.pv;
 
+import java.util.Arrays;
+
 public class HashTableImpl implements HashTable {
-	
+
 	private static class Entry {
 		int key;
 		Object value;
@@ -12,7 +14,7 @@ public class HashTableImpl implements HashTable {
 
 	private static final int MIN_SIZE = 2;
 	private static final int MAX_SIZE = 16;
-	
+
 	private Entry[] table;
 	private int current_size = 0;
 
@@ -20,8 +22,8 @@ public class HashTableImpl implements HashTable {
 		table = new Entry[INITIAL_SIZE];
 	}
 
-	private static Integer find_slot(int key, Entry[] table, boolean for_search) {
-		int idx = hash(key, table.length) % table.length;
+	private Integer find_slot(int key, boolean for_search) {
+		int idx = hash(key) % table.length;
 		int checked = 0;
 		while(table[idx] != null && (table[idx].occupied || for_search) && table[idx].key != key) {
 			if(checked++ > table.length) {
@@ -35,13 +37,13 @@ public class HashTableImpl implements HashTable {
 	}
 
 	private int find_slot_resize(int key, boolean for_search) {
-		Integer idx = find_slot(key, table, for_search);
+		Integer idx = find_slot(key, for_search);
 		if(idx != null) {
 			return idx;
 		}
 
 		rebuild(table.length * 2);
-		idx = find_slot(key, table, false);
+		idx = find_slot(key, false);
 		assert idx != null;
 		return idx;
 	}
@@ -50,17 +52,16 @@ public class HashTableImpl implements HashTable {
 		if(new_size > MAX_SIZE) {
 			throw new IllegalStateException("Reached MAX_SIZE of the table.");
 		}
-		Entry[] newTable = new Entry[new_size];
-		for(Entry entry : table) {
+		Entry[] oldTable = table;
+		table = new Entry[new_size];
+		for(Entry entry : oldTable) {
 			if(entry == null || !entry.occupied) {
 				continue;
 			}
-			Integer idx = find_slot(entry.key, newTable, false);
+			Integer idx = find_slot(entry.key, false);
 			assert idx != null;
-			newTable[idx] = entry;
+			table[idx] = entry;
 		}
-
-		table = newTable;
 	}
 
 	@Override
@@ -94,48 +95,15 @@ public class HashTableImpl implements HashTable {
 
 	@Override
 	public void remove(int key) {
-		int i = find_slot_resize(key, false);
+		int i = find_slot_resize(key, true);
 		if(table[i] == null || !table[i].occupied) {
+			System.out.printf("Not found: %d%n", key);
 			return;
 		}
 
+		//int old_i = i;
 		table[i].occupied = false;
-		/*int j = (i + 1) % table.length;
-		while(j < table.length) {
-			if(table[j] == null || !table[j].occupied)
-				break;
-
-			int k = hash(table[j].key) % table.length;
-			if(k >= i && k < j) {
-				table[k].key = table[j].key;
-				table[k].value = table[j].value;
-				table[k].occupied = true;
-				table[j].occupied = false;
-				i = j;
-			}
-
-			j++;
-		}*/
-		int j = i;
-		while(true) {
-			j++;
-			if(j >= table.length)
-				break;
-			j %= table.length;
-
-			if(table[j] == null || !table[j].occupied)
-				break;
-
-			int k = hash(table[j].key) % table.length;
-
-			if ((i <= j && (k < i || k > j)) || (i > j && (k > j || k < i))) {
-				table[i].key = table[j].key;
-				table[i].value = table[j].value;
-				table[i].occupied = true;
-				table[j].occupied = false;
-				i = j;
-			}
-		}
+		table[i].value = null;
 
 		current_size--;
 
@@ -160,13 +128,7 @@ public class HashTableImpl implements HashTable {
 		return result;
 	}
 
-	private static int hash(int key, int tableLen) {
-		return Math.abs(key % tableLen);
-	}
-	
-	// you have to use this function to obtain a hash of a key
 	private int hash(int key) {
-		return hash(key, table.length);
+		return Math.abs(key % table.length);
 	}
-
 }
